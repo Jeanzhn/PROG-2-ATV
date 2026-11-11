@@ -1,12 +1,13 @@
 import express from 'express';
-import usuarioRoutes from './routes/usuarioRoutes';
+import rotas from './routes';
 
 const app = express();
+
 app.use(express.json());
+app.use(rotas);
 
-app.use(usuarioRoutes);
+const PORTA = process.env.PORT || 3000;
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor modular rodando na porta ${PORT}`);
+app.listen(PORTA, () => {
+  console.log(`[Sistema Acadêmico] Servidor ativo na porta ${PORTA}`);
 });

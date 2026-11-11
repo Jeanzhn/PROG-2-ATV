@@ -1,18 +1,31 @@
 import { Request, Response, NextFunction } from 'express';
-import { usuariosDB } from '../database';
+import { bancoDados } from '../repositories/memoriaRepository';
 
 export function autenticar(req: Request, res: Response, next: NextFunction): any {
-  const emailHeader = req.headers['x-user-email'] as string;
+  const authHeader = req.headers.authorization;
+  const emailLegado = req.headers['x-user-email'] as string | undefined;
 
-  if (!emailHeader) {
-    return res.status(401).json({ mensagem: "Não autenticado" });
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const usuarioAutenticado = bancoDados.sessoesAtivas.get(token);
+
+    if (!usuarioAutenticado) {
+      return res.status(401).json({
+        mensagem: "Sessão inválida ou expirada. Faça login novamente."
+      });
+    }
+
+    req.usuario = {
+      id: usuarioAutenticado.id,
+      matricula: usuarioAutenticado.matricula,
+      nome: usuarioAutenticado.nome,
+      email: usuarioAutenticado.email,
+      perfil: usuarioAutenticado.perfil
+    };
+    return next();
   }
 
-  const usuario = usuariosDB.find(u => u.email === emailHeader);
-  if (!usuario) {
-    return res.status(401).json({ mensagem: "Usuário não encontrado" });
-  }
-
-  req.usuario = usuario;
-  next();
+  return res.status(401).json({
+    mensagem: "Token de autenticação não fornecido. Envie o header Authorization."
+  });
 }
