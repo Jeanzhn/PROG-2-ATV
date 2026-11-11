@@ -6,13 +6,9 @@ import { verificarPermissao } from '../middlewares/verificarPermissao';
 
 const rotas = Router();
 
-// --- ATIVIDADE 1: Rotas Públicas de Cadastro e Autenticação ---
 rotas.post('/usuarios/cadastrar', AuthController.registrarUsuario);
 rotas.post('/login', AuthController.autenticarUsuario);
 
-// --- ATIVIDADE 2: Rotas Protegidas por Perfil ---
-
-// 1. Acesso exclusivo do Administrador
 rotas.get(
   '/admin/dashboard',
   autenticar,

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Acadêmico - Teste de Cadastro e Permissões</title>
+  <style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { background: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+    h1 { text-align: center; font-size: 22px; margin-bottom: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: #fff; padding: 18px; border-radius: 6px; border: 1px solid #dcdcdc; }
+    .card h2 { margin-top: 0; font-size: 17px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    label { display: block; margin-top: 10px; font-size: 13px; font-weight: bold; }
+    input, select, button { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    button { background: #2563eb; color: #fff; border: none; cursor: pointer; margin-top: 12px; font-weight: bold; }
+    button:hover { background: #1d4ed8; }
+    .btn-secundario { background: #4b5563; margin-top: 6px; }
+    .btn-secundario:hover { background: #374151; }
+    .regras { font-size: 12px; color: #555; background: #f9fafb; padding: 8px; border-radius: 4px; margin-top: 10px; }
+    .status-sessao { background: #eef2ff; border: 1px solid #c7d2fe; padding: 10px; border-radius: 4px; font-size: 13px; margin-bottom: 12px; }
+    pre { background: #1e293b; color: #f8fafc; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 13px; min-height: 120px; }
+    .full-width { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+
+  <h1>Sistema Acadêmico - Controle de Usuários e Permissões</h1>
+
+  <div class="container">
+    <!-- ATIVIDADE 1: CADASTRO -->
+    <div class="card">
+      <h2>Atividade 1: Cadastro de Usuário</h2>
+      <label>Nome Completo</label>
+      <input type="text" id="cadNome" placeholder="Ex: Marcos Silva" />
+
+      <label>E-mail</label>
+      <input type="email" id="cadEmail" placeholder="Ex: marcos@academia.edu.br" />
+
+      <label>Senha</label>
+      <input type="password" id="cadSenha" placeholder="Mínimo 8 caracteres (letras e números)" />
+
+      <label>Perfil</label>
+      <select id="cadPerfil">
+        <option value="Aluno">Aluno</option>
+        <option value="Professor">Professor</option>
+        <option value="Administrador">Administrador</option>
+      </select>
+
+      <button onclick="cadastrarUsuario()">Cadastrar Usuário</button>
+
+      <div class="regras">
+        <strong>Regras de Negócio ativas:</strong><br/>
+        • Nome completo obrigatório (nome e sobrenome).<br/>
+        • Senha mínimo 8 caracteres com letras e números.<br/>
+        • <b>Professor</b> e <b>Administrador</b> exigem e-mail <code>@academia.edu.br</code>.<br/>
+        • Limite máximo de 2 Administradores no sistema.
+      </div>
+    </div>
+
+    <!-- ATIVIDADE 2: LOGIN E PERFIS -->
+    <div class="card">
+      <h2>Atividade 2: Autenticação e Perfis</h2>
+
+      <div class="status-sessao" id="statusSessao">
+        Nenhum usuário logado no momento.
+      </div>
+
+      <label>E-mail de Login</label>
+      <input type="email" id="loginEmail" placeholder="Digite seu e-mail" />
+
+      <label>Senha</label>
+      <input type="password" id="loginSenha" placeholder="Digite sua senha" />
+
+      <button onclick="fazerLogin()">Entrar (Gerar Token)</button>
+
+      <hr style="margin: 16px 0; border: 0; border-top: 1px solid #eee;" />
+
+      <strong>Testar Funcionalidades por Perfil:</strong>
+      <button class="btn-secundario" onclick="acessarRota('/admin/dashboard')">
+        [Administrador] Ver Relatório Geral (GET /admin/dashboard)
+      </button>
+      <button class="btn-secundario" onclick="acessarRota('/professor/turmas')">
+        [Professor / Admin] Consultar Diário (GET /professor/turmas)
+      </button>
+      <button class="btn-secundario" onclick="acessarRota('/aluno/boletim')">
+        [Aluno] Ver Meu Boletim (GET /aluno/boletim)
+      </button>
+
+      <hr style="margin: 14px 0; border: 0; border-top: 1px solid #eee;" />
+      <strong>[Exclusivo Professor] Lançar Nota:</strong>
+      <input type="email" id="notaEmailAluno" placeholder="E-mail do aluno (ex: aluno@email.com)" />
+      <input type="text" id="notaDisciplina" placeholder="Disciplina (ex: Banco de Dados)" />
+      <input type="number" id="notaValor" placeholder="Nota (0 a 10)" step="0.1" />
+      <button onclick="lancarNota()">Registrar Nota (POST /professor/avaliacoes)</button>
+    </div>
+
+    <!-- PAINEL DE RESPOSTA DA API -->
+    <div class="card full-width">
+      <h2>Resposta do Servidor (JSON)</h2>
+      <pre id="painelResposta">Aguardando requisição...</pre>
+    </div>
+  </div>
+
+  <script>
+    let tokenAtual = '';
+
+    function exibirResposta(status, dados) {
+      const painel = document.getElementById('painelResposta');
+      painel.textContent = `Status HTTP: ${status}\n\n` + JSON.stringify(dados, null, 2);
+    }
+
+    async function cadastrarUsuario() {
+      const payload = {
+        nome: document.getElementById('cadNome').value,
+        email: document.getElementById('cadEmail').value,
+        senha: document.getElementById('cadSenha').value,
+        perfil: document.getElementById('cadPerfil').value
+      };
+
+      const res = await fetch('/usuarios/cadastrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const dados = await res.json();
+      exibirResposta(res.status, dados);
+    }
+
+    async function fazerLogin() {
+      const payload = {
+        email: document.getElementById('loginEmail').value,
+        senha: document.getElementById('loginSenha').value
+      };
+
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const dados = await res.json();
+      exibirResposta(res.status, dados);
+
+      if (res.ok && dados.token) {
+        tokenAtual = dados.token;
+        document.getElementById('statusSessao').innerHTML =
+          `<strong>Logado como:</strong> ${dados.usuario.nome} (${dados.usuario.perfil})<br/>` +
+          `<strong>Matrícula:</strong> ${dados.usuario.matricula}`;
+      }
+    }
+
+    async function acessarRota(caminho) {
+      const headers = {};
+      if (tokenAtual) {
+        headers['Authorization'] = `Bearer ${tokenAtual}`;
+      }
+
+      const res = await fetch(caminho, { method: 'GET', headers });
+      const dados = await res.json();
+      exibirResposta(res.status, dados);
+    }
+
+    async function lancarNota() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (tokenAtual) {
+        headers['Authorization'] = `Bearer ${tokenAtual}`;
+      }
+
+      const payload = {
+        emailAluno: document.getElementById('notaEmailAluno').value,
+        disciplina: document.getElementById('notaDisciplina').value,
+        nota: document.getElementById('notaValor').value
+      };
+
+      const res = await fetch('/professor/avaliacoes', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      const dados = await res.json();
+      exibirResposta(res.status, dados);
+    }
+  </script>
+</body>
+</html>

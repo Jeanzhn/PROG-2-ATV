@@ -17,14 +17,12 @@ export class AuthController {
 
     if (!nome || !email || !senha || !perfil) {
       return res.status(400).json({
-        erro: "Dados incompletos",
         mensagem: "Os campos nome, email, senha e perfil são obrigatórios."
       });
     }
 
     if (!nomeCompletoValido(nome)) {
       return res.status(400).json({
-        erro: "Nome inválido",
         mensagem: "Informe o nome completo (nome e sobrenome)."
       });
     }
@@ -32,32 +30,26 @@ export class AuthController {
     const emailNormalizado = String(email).trim().toLowerCase();
     if (!emailFormatoValido(emailNormalizado)) {
       return res.status(400).json({
-        erro: "E-mail inválido",
-        mensagem: "O endereço de e-mail informado não possui um formato válido."
+        mensagem: "Formato de e-mail inválido."
       });
     }
 
     if (!senhaForteValida(String(senha))) {
       return res.status(400).json({
-        erro: "Senha fraca",
-        mensagem: "A senha deve ter no mínimo 8 caracteres e conter letras e números."
+        mensagem: "A senha deve ter pelo menos 8 caracteres, contendo letras e números."
       });
     }
 
     if (!PERFIS_PERMITIDOS.includes(perfil)) {
       return res.status(400).json({
-        erro: "Perfil desconhecido",
-        mensagem: "O perfil deve ser: Administrador, Professor ou Aluno."
+        mensagem: "Perfil inválido. Escolha Administrador, Professor ou Aluno."
       });
     }
 
-    const usuarioJaCadastrado = bancoDados.usuarios.some(
-      u => u.email === emailNormalizado
-    );
-    if (usuarioJaCadastrado) {
+    const emailEmUso = bancoDados.usuarios.some(u => u.email === emailNormalizado);
+    if (emailEmUso) {
       return res.status(409).json({
-        erro: "Conflito de cadastro",
-        mensagem: "Já existe um usuário registrado com este e-mail."
+        mensagem: "Este e-mail já está cadastrado no sistema."
       });
     }
 
@@ -66,30 +58,25 @@ export class AuthController {
       !emailNormalizado.endsWith('@academia.edu.br')
     ) {
       return res.status(400).json({
-        erro: "Regra institucional violada",
-        mensagem: `Usuários com perfil de ${perfil} devem utilizar o domínio @academia.edu.br.`
+        mensagem: `Para o perfil ${perfil}, utilize um e-mail institucional (@academia.edu.br).`
       });
     }
 
     if (perfil === 'Administrador') {
-      const totalAdmins = bancoDados.usuarios.filter(
-        u => u.perfil === 'Administrador'
-      ).length;
-      if (totalAdmins >= 2) {
+      const qtdAdmins = bancoDados.usuarios.filter(u => u.perfil === 'Administrador').length;
+      if (qtdAdmins >= 2) {
         return res.status(403).json({
-          erro: "Limite atingido",
-          mensagem: "O sistema permite no máximo 2 Administradores ativos."
+          mensagem: "Regra de negócio: limite máximo de 2 Administradores atingido."
         });
       }
     }
 
-    const prefixoMatricula =
-      perfil === 'Administrador' ? 'ADM' : perfil === 'Professor' ? 'DOC' : 'ALU';
-    const novoId = bancoDados.usuarios.length + 1;
+    const sigla = perfil === 'Administrador' ? 'ADM' : perfil === 'Professor' ? 'PROF' : 'ALU';
+    const id = bancoDados.usuarios.length + 1;
 
-    const novaConta: ContaUsuario = {
-      id: novoId,
-      matricula: `${prefixoMatricula}-2026${String(novoId).padStart(3, '0')}`,
+    const novoUsuario: ContaUsuario = {
+      id,
+      matricula: `${sigla}-2026${String(id).padStart(3, '0')}`,
       nome: nome.trim(),
       email: emailNormalizado,
       senhaCriptografada: gerarHashSenha(String(senha)),
@@ -97,16 +84,16 @@ export class AuthController {
       criadoEm: new Date()
     };
 
-    bancoDados.usuarios.push(novaConta);
+    bancoDados.usuarios.push(novoUsuario);
 
     return res.status(201).json({
-      mensagem: "Cadastro realizado com sucesso!",
-      dados: {
-        id: novaConta.id,
-        matricula: novaConta.matricula,
-        nome: novaConta.nome,
-        email: novaConta.email,
-        perfil: novaConta.perfil
+      mensagem: "Usuário cadastrado com sucesso!",
+      usuario: {
+        id: novoUsuario.id,
+        matricula: novoUsuario.matricula,
+        nome: novoUsuario.nome,
+        email: novoUsuario.email,
+        perfil: novoUsuario.perfil
       }
     });
   }
@@ -116,20 +103,20 @@ export class AuthController {
 
     if (!email || !senha) {
       return res.status(400).json({
-        mensagem: "Informe o e-mail e a senha para realizar o login."
+        mensagem: "Preencha e-mail e senha para entrar."
       });
     }
 
     const emailNormalizado = String(email).trim().toLowerCase();
-    const hashRecebido = gerarHashSenha(String(senha));
+    const senhaHash = gerarHashSenha(String(senha));
 
     const conta = bancoDados.usuarios.find(
-      u => u.email === emailNormalizado && u.senhaCriptografada === hashRecebido
+      u => u.email === emailNormalizado && u.senhaCriptografada === senhaHash
     );
 
     if (!conta) {
       return res.status(401).json({
-        mensagem: "E-mail ou senha incorretos."
+        mensagem: "E-mail ou senha inválidos."
       });
     }
 
@@ -137,7 +124,7 @@ export class AuthController {
     bancoDados.sessoesAtivas.set(token, conta);
 
     return res.status(200).json({
-      mensagem: "Autenticação concluída com sucesso.",
+      mensagem: "Login realizado com sucesso!",
       token,
       usuario: {
         id: conta.id,
